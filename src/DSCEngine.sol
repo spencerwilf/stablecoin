@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.19;
 
+import {StableCoin} from "./StableCoin.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title DSCEngine
@@ -20,13 +22,25 @@ pragma solidity ^0.8.19;
  * @notice This contract handles the core logic of the DSC system, including minting and redeeming DSC, as well as depositing and withdrawing collateral.
  * @notice This contract is loosely based on the MakerDAO DSS (DAI) system.
  */
-contract DSCEngine {
+contract DSCEngine is ReentrancyGuard {
 
     ////////////////
     // Errors /////
     ///////////////
 
     error DSCEngine__LessThanZero();
+    error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
+    error DSCEngine__TokenNotAllowed();
+
+
+    ////////////////////////
+    // State variables /////
+    /////////////////////// 
+
+    mapping(address token => address priceFeed) private s_priceFeeds;
+
+    StableCoin private immutable i_stableCoin;
+
     
 
     ////////////////
@@ -40,6 +54,31 @@ contract DSCEngine {
         _;
     }
 
+    modifier isAllowedToken(address token) {
+        if (s_priceFeeds[token] == address(0)) {
+            revert DSCEngine__TokenNotAllowed();
+        }
+        _;
+    }
+
+    ////////////////
+    // Functions //
+    ///////////////
+
+    constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address dscAddress) {
+        if (tokenAddresses.length != priceFeedAddresses.length) {
+            revert DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
+        }
+        for (uint i = 0; i < tokenAddresses.length; i++) {
+            s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
+        }
+        i_stableCoin = StableCoin(dscAddress);
+    }
+
+     ///////////////////////
+    // External functions //
+    ////////////////////////
+
     function depositCollateralAndMintDSC() external {}
 
     /**
@@ -47,7 +86,14 @@ contract DSCEngine {
      * @param tokenCollateralAddress The address of the token to deposit as collateral
      * @param amountCollateral  The amount of collateral to deposit
      */
-    function depositCollateral(address tokenCollateralAddress, uint amountCollateral) external moreThanZero(amountCollateral) {}
+    function depositCollateral(
+        address tokenCollateralAddress, 
+        uint amountCollateral
+        ) external 
+        moreThanZero(amountCollateral) 
+        isAllowedToken(tokenCollateralAddress)
+        nonReentrant
+        {}
 
     function redeemCollateralForDSC() external {}
 
