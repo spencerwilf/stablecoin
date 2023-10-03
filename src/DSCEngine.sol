@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {StableCoin} from "./StableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title DSCEngine
@@ -31,6 +32,7 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__LessThanZero();
     error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
     error DSCEngine__TokenNotAllowed();
+    error DSCEngine__TokenTransferFailed();
 
 
     ////////////////////////
@@ -38,10 +40,19 @@ contract DSCEngine is ReentrancyGuard {
     /////////////////////// 
 
     mapping(address token => address priceFeed) private s_priceFeeds;
+    mapping(address user => mapping(address token => uint amount)) private s_collateralDeposited;
 
     StableCoin private immutable i_stableCoin;
 
-    
+    ////////////////
+    // Events /////
+    ///////////////
+
+    event CollateralDeposited(
+        address indexed user,
+        address indexed token,
+        uint indexed amount
+    );
 
     ////////////////
     // Modifiers //
@@ -82,7 +93,7 @@ contract DSCEngine is ReentrancyGuard {
     function depositCollateralAndMintDSC() external {}
 
     /**
-     * 
+     * @notice follows CEI (checks, effects, interactions) pattern
      * @param tokenCollateralAddress The address of the token to deposit as collateral
      * @param amountCollateral  The amount of collateral to deposit
      */
@@ -93,7 +104,15 @@ contract DSCEngine is ReentrancyGuard {
         moreThanZero(amountCollateral) 
         isAllowedToken(tokenCollateralAddress)
         nonReentrant
-        {}
+        {
+            s_collateralDeposited[msg.sender][tokenCollateralAddress] += amountCollateral;
+            emit CollateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
+            bool s = IERC20(tokenCollateralAddress).transferFrom(msg.sender, address(this), amountCollateral);
+            if (!s) {
+                revert DSCEngine__TokenTransferFailed();
+            }
+
+        }
 
     function redeemCollateralForDSC() external {}
 
