@@ -22,9 +22,32 @@ pragma solidity ^0.8.19;
  */
 contract DSCEngine {
 
+    ////////////////
+    // Errors /////
+    ///////////////
+
+    error DSCEngine__LessThanZero();
+    
+
+    ////////////////
+    // Modifiers //
+    ///////////////
+
+    modifier moreThanZero(uint amount) {
+        if (amount <= 0) {
+            revert DSCEngine__LessThanZero();
+        }
+        _;
+    }
+
     function depositCollateralAndMintDSC() external {}
 
-    function depositCollateral() external {}
+    /**
+     * 
+     * @param tokenCollateralAddress The address of the token to deposit as collateral
+     * @param amountCollateral  The amount of collateral to deposit
+     */
+    function depositCollateral(address tokenCollateralAddress, uint amountCollateral) external moreThanZero(amountCollateral) {}
 
     function redeemCollateralForDSC() external {}
 
