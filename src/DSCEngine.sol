@@ -30,6 +30,7 @@ contract DSCEngine is ReentrancyGuard {
     // Errors /////
     ///////////////
 
+    error DSCEngine__MintFailed();
     error DSCEngine__LessThanZero();
     error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
     error DSCEngine__TokenNotAllowed();
@@ -139,6 +140,10 @@ contract DSCEngine is ReentrancyGuard {
     function mintDSC(uint amountDscToMint) external moreThanZero(amountDscToMint) {
         s_amountDSCMinted[msg.sender] += amountDscToMint;
         _revertIfHealthFactorIsBroken(msg.sender);
+        bool minted = i_stableCoin.mint(msg.sender, amountDscToMint);
+        if (!minted) {
+            revert DSCEngine__MintFailed();
+        }
     }
 
     function burnDSC() external {}
