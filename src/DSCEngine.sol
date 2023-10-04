@@ -36,6 +36,7 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__TokenNotAllowed();
     error DSCEngine__TokenTransferFailed();
     error DSCEngine__BreaksHealthFactor(uint healthFactor);
+    error DSCEngine__HealthFactorOk();
 
 
     ////////////////////////
@@ -46,7 +47,7 @@ contract DSCEngine is ReentrancyGuard {
     uint private constant PRECISION = 1e18;
     uint private constant LIQUIDATION_THRESHOLD = 50;
     uint private constant LIQUIDATION_PRECISION = 100;
-    uint private constant MIN_HEALTH_FACTOR = 1;
+    uint private constant MIN_HEALTH_FACTOR = 1e18;
 
     mapping(address token => address priceFeed) private s_priceFeeds;
     mapping(address user => mapping(address token => uint amount)) 
@@ -194,7 +195,22 @@ contract DSCEngine is ReentrancyGuard {
         _revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    function liquidate() external {}
+    /**
+     * 
+     * @param collateral erc20 address of collateral to be liquidated
+     * @param user user to be liquidated. _healthFactor should be below MIN_HEALTH_FACTOR
+     * @param debtToCover The amount of dsc you want to burn to improve users health factor
+     * @notice a user can be partially liquidated
+     * @notice liquidator will get bonus for taking a user's funds
+     * @notice this function depends on the fact that the protocol is roughly 200% overcollateralized
+     * For example, if the price of the collateral plummeted before anyone could be liquidated
+     */
+    function liquidate(address collateral, address user, uint debtToCover) external moreThanZero(debtToCover) nonReentrant {
+        uint startingUserHealthFactor = _healthFactor(user);
+        if (startingUserHealthFactor >= MIN_HEALTH_FACTOR) {
+            revert DSCEngine__HealthFactorOk();
+        }
+    }
 
     function getHealthFactor() external view {}
 
