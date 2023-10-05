@@ -16,6 +16,9 @@ contract DSCEngineTest is Test {
     HelperConfig config;
     address ethUsdPriceFeed;
     address weth;
+    address wbtcUsdPriceFeed;
+    address wbtc;
+
 
     address public user = makeAddr("user");
     uint public constant AMOUNT_COLLATERAL = 10 ether;
@@ -24,9 +27,33 @@ contract DSCEngineTest is Test {
     function setUp() public {
         deployer = new DeployDSC();
         (stableCoin, engine, config) = deployer.run();
-        (ethUsdPriceFeed,,weth,,) = config.activeNetworkConfig();
+        (ethUsdPriceFeed,wbtcUsdPriceFeed,weth,wbtc,) = config.activeNetworkConfig();
 
         ERC20Mock(weth).mint(user, STARTING_ERC_BALANCE);
+    }
+
+    ///////////////////////
+    // Constructor Tests //
+    ////////////////////// 
+
+    address[] public tokenAddresses;
+    address[] public priceFeedAddresses;
+
+    function testRevertsIfTokenLengthDoesntMatchPriceFeed() public {
+        tokenAddresses.push(weth);
+        priceFeedAddresses.push(ethUsdPriceFeed);
+        priceFeedAddresses.push(wbtcUsdPriceFeed);
+
+        vm.expectRevert(DSCEngine.DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength.selector);
+        new DSCEngine(tokenAddresses, priceFeedAddresses, address(stableCoin));
+    }
+
+    function testTokenAmountFromUSD() public {
+        uint usdAmount = 100 ether;
+        uint expectedWeth = 0.05 ether;
+
+        uint actualWeth = engine.getTokenAmountFromUsd(weth, usdAmount);
+        assertEq(expectedWeth, actualWeth);
     }
 
     //////////////////
